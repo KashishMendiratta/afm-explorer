@@ -1,0 +1,27 @@
+# Production-shaped overlay: NOT auto-loaded — invoke explicitly:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# (this deliberately skips docker-compose.override.yml, so no dev bind-mounts,
+# --reload, or direct host ports leak in). Only nginx is published; it fronts
+# both services and forwards the WebSocket upgrade Streamlit needs.
+
+services:
+  backend:
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    restart: unless-stopped
+    mem_limit: 400m
+
+  frontend:
+    command: streamlit run Home.py --server.port=8501 --server.address=0.0.0.0 --server.headless=true
+    restart: unless-stopped
+    mem_limit: 300m
+
+  nginx:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+      - frontend
+    restart: unless-stopped

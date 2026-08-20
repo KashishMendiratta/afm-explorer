@@ -1,0 +1,23 @@
+# Dev-only overlay, loaded automatically by `docker compose up` (no -f
+# needed). Adds hot-reload, source bind-mounts, and direct host ports so
+# you can hit the backend/frontend without nginx in front while developing.
+# Explicitly excluded when running with docker-compose.prod.yml, since you
+# invoke that as `docker compose -f docker-compose.yml -f docker-compose.prod.yml ...`
+# which does NOT pick up this file.
+
+services:
+  backend:
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./backend/app:/app/backend/app
+      - ./packages/afm_core/afm_core:/app/packages/afm_core/afm_core
+      - ./packages/ml/ml:/app/packages/ml/ml
+    ports:
+      - "8000:8000"
+
+  frontend:
+    command: streamlit run Home.py --server.port=8501 --server.address=0.0.0.0 --server.headless=true --server.fileWatcherType=poll
+    volumes:
+      - ./frontend/streamlit_app:/app/frontend/streamlit_app
+    ports:
+      - "8501:8501"

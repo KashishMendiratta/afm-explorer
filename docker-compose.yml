@@ -1,0 +1,32 @@
+# Base service definitions shared by dev and prod. No host ports and no
+# bind-mounts here on purpose (Compose *concatenates* list fields like
+# `ports`/`volumes` across files rather than replacing them, so anything
+# declared here would leak into the prod overlay too). Dev-only additions
+# (bind mounts, --reload, published ports) live in docker-compose.override.yml,
+# which `docker compose up` loads automatically. Prod additions (nginx) live
+# in docker-compose.prod.yml, loaded explicitly:
+#   dev:  docker compose up --build
+#   prod: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      - AFM_DATA_DIR=/app/backend/data
+      - AFM_CORS_ALLOW_ORIGINS=["*"]
+    volumes:
+      - backend_data:/app/backend/data
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    environment:
+      - BACKEND_URL=http://backend:8000
+    depends_on:
+      - backend
+
+volumes:
+  backend_data:
