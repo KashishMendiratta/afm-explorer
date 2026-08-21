@@ -6,3 +6,15 @@ exclude = ["legacy_scripts", ".venv"]
 [tool.ruff.lint]
 select = ["E", "F", "I"]
 ignore = ["E501"]
+
+[tool.pytest.ini_options]
+# Mirrors packages/mcp_server/pyproject.toml's own setting. pytest resolves
+# a single ini file for the whole session based on the common ancestor of
+# the paths passed on the command line — when running e.g.
+# `pytest packages/afm_core/tests packages/ml/tests packages/mcp_server/tests`
+# together (as opposed to CI's per-package invocations), that ancestor
+# walk can land here instead of on the package-local pyproject.toml, which
+# would otherwise silently disable asyncio_mode for mcp_server's async
+# tests. Keeping the same setting here too makes combined local runs behave
+# the same as CI's per-package ones.
+asyncio_mode = "auto"

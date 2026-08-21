@@ -1,0 +1,15 @@
+pyproject.toml
+afm_core/__init__.py
+afm_core/features.py
+afm_core/heuristics.py
+afm_core/parsing.py
+afm_core/preprocessing.py
+afm_core/schemas.py
+afm_core.egg-info/PKG-INFO
+afm_core.egg-info/SOURCES.txt
+afm_core.egg-info/dependency_links.txt
+afm_core.egg-info/requires.txt
+afm_core.egg-info/top_level.txt
+tests/test_features.py
+tests/test_heuristics.py
+tests/test_parsing.py

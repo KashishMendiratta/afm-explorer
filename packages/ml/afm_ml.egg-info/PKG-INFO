@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: afm-ml
+Version: 0.1.0
+Summary: Contact-point detection (supervised) and curve quality control (unsupervised) ML pipeline for AFM force curves
+Requires-Python: >=3.10
+Requires-Dist: afm-core
+Requires-Dist: numpy<2.0,>=1.26
+Requires-Dist: scikit-learn<2.0,>=1.3
+Requires-Dist: joblib>=1.3
+Provides-Extra: dev
+Requires-Dist: pytest>=7.4; extra == "dev"

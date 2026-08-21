@@ -1,0 +1,19 @@
+{
+  "active": "20260821T172142-d09dcc5ed7",
+  "metrics": {
+    "n_train_rows": 195,
+    "n_test_rows": 130,
+    "n_labeled_curves": 5,
+    "window_f1": 0.21052631578947367,
+    "window_precision": 0.2222222222222222,
+    "window_recall": 0.2,
+    "evaluation": {
+      "n_eval_curves": 1,
+      "heuristic_mean_abs_error": 376.0,
+      "ml_mean_abs_error": 154.0,
+      "heuristic_median_abs_error": 376.0,
+      "ml_median_abs_error": 154.0
+    },
+    "has_qc_model": true
+  }
+}

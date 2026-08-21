@@ -3,13 +3,14 @@ from __future__ import annotations
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
 from app.api.deps import Settings, get_settings
+from app.core.security import require_api_key
 from app.schemas.training import ActiveModelInfo, TrainJobStatus, TrainRequest
 from app.services import model_registry, train_service
 
 router = APIRouter(prefix="/api", tags=["training"])
 
 
-@router.post("/train", response_model=TrainJobStatus)
+@router.post("/train", response_model=TrainJobStatus, dependencies=[Depends(require_api_key)])
 def trigger_training(
     req: TrainRequest, background_tasks: BackgroundTasks, settings: Settings = Depends(get_settings)
 ):

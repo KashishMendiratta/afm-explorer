@@ -1,0 +1,13 @@
+pyproject.toml
+afm_mcp_server.egg-info/PKG-INFO
+afm_mcp_server.egg-info/SOURCES.txt
+afm_mcp_server.egg-info/dependency_links.txt
+afm_mcp_server.egg-info/entry_points.txt
+afm_mcp_server.egg-info/requires.txt
+afm_mcp_server.egg-info/top_level.txt
+mcp_server/__init__.py
+mcp_server/__main__.py
+mcp_server/client.py
+mcp_server/server.py
+tests/test_client.py
+tests/test_server.py

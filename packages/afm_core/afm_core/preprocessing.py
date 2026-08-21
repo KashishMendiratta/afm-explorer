@@ -1,21 +1,28 @@
 """Scan-level preprocessing: turns a parsed set of curves into the cached,
 backend-owned artifacts the API and frontend actually consume.
 
-This replaces a step that existed only implicitly in the original project:
-afm.py / app2.py expected a pre-built '{prefix}.data.pickled' +
-'{prefix}.heights.npy' pair, but no script producing them was included.
-Two deliberate design changes from that original approach:
+This replaces a step the original coursework (see repo README, "Origin")
+handled differently: afm.py / app2.py expected a pre-built
+'{prefix}.data.pickled' + '{prefix}.heights.npy' pair for the full
+128x128-pixel dataset — but those were preprocessed and handed out directly
+by the course staff for Part III, not something the assignment asked
+students to produce themselves. Since that preprocessing step (raw
+instrument export -> pickled curves + a real topography channel) isn't
+part of this project's own pipeline, two deliberate design changes were
+made here rather than trying to reproduce it:
 
 1. No pickle. The backend accepts a raw '.txt' upload and parses it itself
    (via afm_core.parsing); it never unpickles a file from a client, which
    would be an arbitrary-code-execution risk for a networked service.
-2. No separate proprietary topography file. The original height map came
-   from an instrument-specific file format that isn't part of this project.
-   Instead, ScanCache derives an approximate height map from the force
-   curves themselves: for each (i, j) pixel, the surface height is taken as
-   the distance (d) coordinate at the estimated contact point of the
-   extend/push (series 0) curve. This is a documented approximation, not a
-   faithful re-derivation of the original instrument's topography channel.
+2. No separate topography file (yet). The real height channel
+   ('afm.heights.npy', a sample of which is committed under
+   data/samples/ for reference) exists but isn't ingested here — see the
+   README's "Known limitations" / "Roadmap" sections for wiring it in as a
+   follow-up. Until then, ScanCache derives an *approximate* height map
+   from the force curves themselves: for each (i, j) pixel, the surface
+   height is taken as the distance (d) coordinate at the estimated contact
+   point of the extend/push (series 0) curve. This is a documented
+   approximation, not a faithful re-derivation of the real topography.
 """
 
 from __future__ import annotations

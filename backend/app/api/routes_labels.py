@@ -3,13 +3,14 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Query
 
 from app.api.deps import Settings, get_settings
+from app.core.security import require_api_key
 from app.schemas.labels import LabelIn, LabelOut
 from app.services import label_service
 
 router = APIRouter(prefix="/api/labels", tags=["labels"])
 
 
-@router.post("", response_model=LabelOut)
+@router.post("", response_model=LabelOut, dependencies=[Depends(require_api_key)])
 def create_label(label: LabelIn, settings: Settings = Depends(get_settings)):
     saved = label_service.add_label(
         settings, label.scan_id, label.series, label.i, label.j, label.contact_index

@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
 
 from app.api.deps import Settings, get_settings
 from app.core import storage
+from app.core.security import require_api_key
 from app.schemas.scans import HeatmapResponse, ScanMetaOut, ScanSummary, ScanUploadResponse
 from app.services import estimate_service, scan_service
 
@@ -15,7 +16,7 @@ def _nan_to_none(matrix: np.ndarray) -> list[list[float | None]]:
     return [[None if np.isnan(v) else float(v) for v in row] for row in matrix]
 
 
-@router.post("", response_model=ScanUploadResponse)
+@router.post("", response_model=ScanUploadResponse, dependencies=[Depends(require_api_key)])
 async def upload_scan(file: UploadFile, settings: Settings = Depends(get_settings)):
     content = await file.read()
     try:
