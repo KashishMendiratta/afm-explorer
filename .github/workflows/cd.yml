@@ -1,0 +1,93 @@
+name: CD
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to EC2
+
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main'
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configure temporary AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: eu-north-1
+
+      - name: Get GitHub runner IP
+        id: runner-ip
+        run: |
+          IP=$(curl -fsS https://checkip.amazonaws.com)
+          echo "cidr=${IP}/32" >> "$GITHUB_OUTPUT"
+
+      - name: Temporarily allow SSH from runner
+        run: |
+          aws ec2 authorize-security-group-ingress \
+            --group-id "${{ vars.EC2_SECURITY_GROUP_ID }}" \
+            --protocol tcp \
+            --port 22 \
+            --cidr "${{ steps.runner-ip.outputs.cidr }}"
+
+      - name: Configure SSH key
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          printf '%s\n' "${{ secrets.EC2_DEPLOY_KEY }}" \
+            > ~/.ssh/id_ed25519
+
+          chmod 600 ~/.ssh/id_ed25519
+
+          ssh-keyscan -H "${{ vars.EC2_HOST }}" \
+            >> ~/.ssh/known_hosts
+
+      - name: Deploy
+        run: |
+          ssh \
+            -i ~/.ssh/id_ed25519 \
+            ubuntu@"${{ vars.EC2_HOST }}" <<'EOF'
+
+          set -e
+
+          cd ~/afm-explorer
+
+          git fetch origin main
+          git reset --hard origin/main
+
+          docker compose \
+            -f docker-compose.yml \
+            -f docker-compose.prod.yml \
+            up -d --build
+
+          docker image prune -f
+          EOF
+
+      - name: Verify live deployment
+        run: |
+          curl --fail \
+            --retry 10 \
+            --retry-delay 5 \
+            https://afm.kashishmendiratta.com/api/health
+
+      - name: Remove temporary SSH access
+        if: always()
+        run: |
+          aws ec2 revoke-security-group-ingress \
+            --group-id "${{ vars.EC2_SECURITY_GROUP_ID }}" \
+            --protocol tcp \
+            --port 22 \
+            --cidr "${{ steps.runner-ip.outputs.cidr }}" \
+            || true
