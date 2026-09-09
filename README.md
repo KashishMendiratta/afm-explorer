@@ -6,6 +6,10 @@
 
 AFM Explorer is a full-stack platform for analyzing Atomic Force Microscopy (AFM) force-distance data. It started as a university programming assignment and was rebuilt into a tested, containerized, cloud-deployed application with a REST API, interactive visualizations, machine-learning-based contact-point estimation, CI/CD, and an MCP interface for AI-assisted analysis.
 
+![AFM force curve with the detected contact region and estimated contact point](docs/assets/afm-curve-analysis.png)
+
+*Reproducible example generated from the repository's bundled AFM scan using the classical contact-region estimator.*
+
 ## What does AFM Explorer do?
 
 Atomic Force Microscopy uses a very small probe to press against many points on a surface. Each interaction produces a force-distance curve that describes how the material responds. AFM Explorer turns those raw measurements into interactive maps and plots, estimates where the probe first makes contact with the surface, and uses the fitted response to compare stiffness across a scan.
@@ -597,4 +601,3 @@ The next extensions are intentionally focused on adding capability rather than e
 
 3. **Larger real labeling and ML evaluation cycle**  
    Label a substantially larger set of real curves and report robust heuristic-vs-ML contact-point error on held-out curves.
-
