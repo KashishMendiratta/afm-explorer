@@ -64,6 +64,16 @@ jobs:
 
           cd ~/afm-explorer
 
+          # Keep enough free disk space for Git and image rebuilds on the
+          # small EC2 root volume. Volumes are intentionally left untouched.
+          docker container prune -f
+          docker image prune -af
+          docker builder prune -af
+
+          # Older revisions accidentally tracked a local virtual environment.
+          # The production stack runs in containers, so it is safe to remove.
+          rm -rf .venv
+
           git fetch origin main
           git reset --hard origin/main
 
