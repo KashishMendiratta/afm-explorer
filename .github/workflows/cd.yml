@@ -66,6 +66,10 @@ jobs:
 
           # Keep enough free disk space for Git and image rebuilds on the
           # small EC2 root volume. Volumes are intentionally left untouched.
+          docker compose \
+            -f docker-compose.yml \
+            -f docker-compose.prod.yml \
+            down --remove-orphans
           docker container prune -f
           docker image prune -af
           docker builder prune -af
