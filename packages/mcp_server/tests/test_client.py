@@ -36,6 +36,9 @@ async def test_upload_scan_file_missing_path_raises_readable_error(afm_client):
 
 
 async def test_curve_and_heuristic_estimate(afm_client, uploaded_scan_id):
+    coordinates = await afm_client.list_curve_coordinates(uploaded_scan_id, series=0)
+    assert [(item["i"], item["j"]) for item in coordinates] == [(i, 0) for i in range(6)]
+
     curve = await afm_client.get_curve(uploaded_scan_id, 0, 0, 0)
     assert len(curve["distance"]) == len(curve["force"]) > 0
 

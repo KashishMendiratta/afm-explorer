@@ -43,6 +43,20 @@ def test_get_curve_and_heuristic_estimate(client, uploaded_scan_id):
     assert fit["start_index"] < fit["end_index"]
 
 
+def test_curve_coordinates_report_only_available_sparse_curves(client, uploaded_scan_id):
+    resp = client.get(f"/api/scans/{uploaded_scan_id}/curves")
+    assert resp.status_code == 200
+    coordinates = resp.json()
+    assert len(coordinates) == 12
+    assert {(item["series"], item["i"], item["j"]) for item in coordinates} == {
+        (series, i, 0) for series in (0, 1) for i in range(6)
+    }
+    assert all(item["n_points"] > 0 for item in coordinates)
+
+    push = client.get(f"/api/scans/{uploaded_scan_id}/curves?series=0").json()
+    assert [(item["i"], item["j"]) for item in push] == [(i, 0) for i in range(6)]
+
+
 def test_ml_estimate_without_trained_model_returns_409(client, uploaded_scan_id):
     resp = client.get(f"/api/scans/{uploaded_scan_id}/curves/0/0/0/estimate?method=ml")
     assert resp.status_code == 409

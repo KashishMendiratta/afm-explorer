@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import streamlit as st
 from lib import api_client
 
@@ -17,7 +19,25 @@ if not api_client.backend_healthy():
     )
     st.stop()
 
-st.subheader("Upload a scan")
+st.subheader("Explore a scan")
+st.write("New to AFM? Load the built-in demo and open **Curve Explorer** from the sidebar—no file needed.")
+if st.button("✨ Load built-in demo", type="primary"):
+    demo_name = "afm-explorer-demo.txt"
+    existing = next((scan for scan in api_client.list_scans() if scan["source_filename"] == demo_name), None)
+    if existing:
+        st.session_state["scan_id"] = existing["scan_id"]
+        st.success("Demo selected. Open **Curve Explorer** or **Height & Stiffness Maps** from the sidebar.")
+    else:
+        demo_path = Path(__file__).resolve().parents[2] / "data" / "samples" / "sample.txt"
+        with st.spinner("Preparing the demo scan..."):
+            result = api_client.upload_scan(demo_name, demo_path.read_bytes())
+        api_client.list_scans.clear()
+        st.session_state["scan_id"] = result["scan_id"]
+        st.success(
+            f"Demo ready with {result['n_curves']} force curves. Open **Curve Explorer** from the sidebar."
+        )
+
+st.markdown("**Or upload your own scan**")
 uploaded = st.file_uploader("AFM text export (.txt)", type=["txt"])
 if uploaded is not None and st.button("Parse & upload"):
     with st.spinner("Parsing..."):

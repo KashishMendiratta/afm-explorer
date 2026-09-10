@@ -4,9 +4,9 @@
 
 **Live demo:** https://afm.kashishmendiratta.com
 
-**Engineering evidence:** 39 automated tests · GitHub Actions CI/CD
+**Engineering evidence:** 52 automated tests · GitHub Actions CI/CD
 
-AFM Explorer is a full-stack platform for analyzing Atomic Force Microscopy (AFM) force-distance data. It started as a university programming assignment and was rebuilt into a tested, containerized, cloud-deployed application with a REST API, interactive visualizations, machine-learning-based contact-point estimation, CI/CD, and an MCP interface for AI-assisted analysis.
+AFM Explorer is a full-stack platform for analyzing Atomic Force Microscopy (AFM) force-distance data. It started as a university programming assignment and was rebuilt into a tested, containerized, cloud-deployed application with a REST API, interactive visualizations, machine-learning-based contact-point estimation, CI/CD, an MCP live-data interface, and a bounded autonomous agent with local retrieval-augmented generation (RAG).
 
 ![AFM force curve with the detected contact region and estimated contact point](docs/assets/afm-curve-analysis.png)
 
@@ -16,7 +16,7 @@ AFM Explorer is a full-stack platform for analyzing Atomic Force Microscopy (AFM
 
 Atomic Force Microscopy uses a very small probe to press against many points on a surface. Each interaction produces a force-distance curve that describes how the material responds. AFM Explorer turns those raw measurements into interactive maps and plots, estimates where the probe first makes contact with the surface, and uses the fitted response to compare stiffness across a scan.
 
-For a non-technical user, the workflow is simple: upload an AFM scan, explore the generated maps, click into individual measurement locations, inspect their force curves, and compare classical and machine-learning estimates. For developers and researchers, the same functionality is exposed through a REST API and an MCP tool layer.
+For a non-technical user, the workflow is simple: click **Load built-in demo**, explore the generated maps, open real measurement locations, and compare classical and machine-learning estimates. No AFM file is needed for the demo. Users can still upload their own scans, while developers and researchers can access the same functionality through REST, MCP, and the autonomous CLI agent.
 
 ## Full-stack ML system
 
@@ -44,6 +44,7 @@ The coursework version consisted of standalone scripts with duplicated parsing l
 - HTTPS through Cloudflare Tunnel
 - GitHub Actions CI/CD
 - an MCP server exposing AFM functionality as AI-callable tools
+- a read-only-by-default autonomous agent combining MCP data with local LangChain RAG
 
 ## Architecture
 
@@ -63,6 +64,9 @@ flowchart LR
     API --> Storage[("filesystem storage")]
 
     AI["MCP-compatible AI client"] --> MCP["AFM MCP server"]
+    Agent["Bounded AFM agent"] --> MCP
+    Agent --> RAG["LangChain local RAG"]
+    RAG --> Docs["AFM knowledge documents"]
     MCP -->|HTTP| API
 
     Core --> Parse["Parsing"]
@@ -81,6 +85,8 @@ flowchart LR
 - **`backend`** — FastAPI application exposing scan, curve, map, labeling, training, model, and health endpoints.
 - **`frontend`** — Streamlit application that communicates with the backend over HTTP rather than reading data directly from disk.
 - **`packages/mcp_server`** — Model Context Protocol server exposing the REST API as tools for an AI client.
+- **`packages/rag`** — LangChain loaders, recursive chunking, deterministic local embeddings, an in-process vector store, retrieval, and retrieval evaluation.
+- **`packages/agent`** — OpenAI Agents SDK runner combining MCP tools with `search_afm_knowledge`, bounded turns, CLI execution, and read-only defaults.
 - **`docker/nginx`** — production reverse-proxy configuration.
 - **`.github/workflows`** — continuous integration and deployment workflows.
 
@@ -146,11 +152,17 @@ An `IsolationForest` operates on whole-curve features to provide anomaly and qua
 
 The ML estimator is evaluated against the classical heuristic on held-out labeled curves. The key question is not simply whether a model can be trained, but whether it reduces contact-index error relative to the original heuristic.
 
-## AI-assisted analysis with MCP
+## Autonomous MCP + RAG agent
 
-AFM Explorer includes an MCP server under [`packages/mcp_server/`](packages/mcp_server).
+AFM Explorer includes a bounded autonomous agent under [`packages/agent/`](packages/agent). The OpenAI Agents SDK runs the model/tool loop, MCP remains the only interface to live scan data, and the separate LangChain RAG package supplies domain-document retrieval through `search_afm_knowledge`.
 
-The Model Context Protocol layer converts the REST API into tools that an MCP-compatible AI client can call. This lets an AI assistant inspect AFM data through controlled application interfaces rather than by reading internal files or manipulating Python objects directly.
+The split is intentional:
+
+```text
+MCP       → current scans, maps, curves, labels and model state
+Local RAG → AFM concepts, interpretation guidance and artifact notes
+Agent     → decides which evidence to gather and combines it in a grounded answer
+```
 
 Example questions and workflows include:
 
@@ -170,6 +182,7 @@ The MCP server exposes read-oriented tools including:
 - `get_height_map`
 - `get_stiffness_map`
 - `get_curve`
+- `list_curve_coordinates`
 - `get_contact_point_estimate`
 - `list_labels`
 - `get_active_model`
@@ -177,7 +190,15 @@ The MCP server exposes read-oriented tools including:
 
 Map responses include compact summaries such as minimum, maximum, mean, missing-value count, and extrema locations so an AI client does not need to reason token-by-token over an entire grid.
 
-### Write tools
+The coordinate inventory matters for sparse exports: a file can declare a 128×128 grid while containing only a handful of measured curves. Both the agent and Streamlit navigation use actual available coordinates rather than inventing dense grid locations.
+
+### Knowledge retrieval
+
+[`packages/rag/`](packages/rag) loads Markdown, text, and PDF documents with LangChain loaders, splits them with `RecursiveCharacterTextSplitter`, and indexes chunks in LangChain's local `InMemoryVectorStore`. The default `LocalHashEmbeddings` implementation is deterministic and makes no network calls, so ingestion, retrieval, and evaluation run without an API key or paid embedding service.
+
+The included knowledge base contains project-authored AFM interpretation and artifact notes under [`knowledge/`](knowledge). Retrieval results contain the passage, source path, topic, and similarity score so the agent can cite its evidence.
+
+### Write tools and safety
 
 The MCP layer can also expose:
 
@@ -185,15 +206,19 @@ The MCP layer can also expose:
 - `submit_label`
 - `train_model`
 
-Write tools can be removed entirely from the exposed MCP tool set by setting:
+The agent removes write tools from its MCP tool set by default. They are available only after the explicit opt-in:
 
 ```bash
-AFM_MCP_READONLY=true
+AFM_AGENT_ALLOW_WRITES=true
 ```
 
-This is the preferred mode for read-only or shared AI access.
+Even then, the agent instructions require a direct user request for the exact upload, label, or training action. The turn budget defaults to eight and is capped at twenty.
 
-The MCP integration provides the tool layer for AI-assisted analysis. A dedicated autonomous multi-step agent that independently plans and chains several AFM operations is intentionally left as future work.
+### Verification and API cost boundary
+
+The RAG pipeline, tool schema, agent construction, read-only environment, turn bounds, and missing-key behavior are tested offline in CI. `afm-agent --check` builds the local index and verifies configuration without calling a model.
+
+Real autonomous reasoning uses the OpenAI API and therefore requires a user-provided `OPENAI_API_KEY`. CI does not make paid model calls, and the agent is not exposed on the public Streamlit deployment. The default `gpt-5.6-luna` can be changed with `AFM_AGENT_MODEL`.
 
 ## Repository layout
 
@@ -201,13 +226,16 @@ The MCP integration provides the tool layer for AI-assisted analysis. A dedicate
 packages/
 ├── afm_core/       Shared parsing, schemas, heuristics and feature engineering
 ├── ml/             Dataset generation, training, inference and evaluation
-└── mcp_server/     MCP tools wrapping the REST API
+├── mcp_server/     MCP tools wrapping the REST API
+├── rag/            Local LangChain document retrieval and evaluation
+└── agent/          Bounded autonomous MCP + RAG agent
 
 backend/            FastAPI application, storage and orchestration
 frontend/           Streamlit frontend
 docker/nginx/       Production reverse-proxy configuration
 deploy/             Deployment/bootstrap helpers
 data/samples/       Small AFM sample data used by tests and demos
+knowledge/          Project-authored AFM reference notes for RAG
 legacy_scripts/     Original university-assignment scripts
 .github/workflows/  CI and CD workflows
 
@@ -226,6 +254,8 @@ DEPLOY.md           Production deployment documentation
 | Frontend | Streamlit, Plotly |
 | API communication | HTTP / JSON |
 | AI tool interface | MCP / FastMCP |
+| Agent orchestration | OpenAI Agents SDK |
+| RAG | LangChain loaders, text splitters and local vector store |
 | Containerization | Docker, Docker Compose |
 | Reverse proxy | nginx |
 | Cloud | AWS EC2 |
@@ -284,6 +314,13 @@ Install the MCP package if you want the AI/MCP interface:
 pip install -e packages/mcp_server -e "packages/mcp_server[dev]"
 ```
 
+Install local RAG and the autonomous agent:
+
+```bash
+pip install -e "packages/rag[dev]"
+pip install -e "packages/agent[dev]"
+```
+
 ### Start the backend
 
 Terminal 1:
@@ -317,11 +354,25 @@ Open:
 
 `http://localhost:8501`
 
-Upload:
+Click **Load built-in demo** on the home page, then open **Curve Explorer**. The demo contains a sparse subset of a declared 128×128 scan; the UI intentionally offers only coordinates that actually exist.
 
-`data/samples/sample.txt`
+### Run the agent
 
-to explore the demo scan.
+Verify the local knowledge index and read-only configuration without an API key:
+
+```bash
+afm-agent --check
+```
+
+For a real model-driven run, start the backend and set your own key:
+
+```bash
+export OPENAI_API_KEY="your-key"
+export BACKEND_URL="http://localhost:8000"
+afm-agent "Find the stiffest measured location, inspect its curve, and explain possible artifacts."
+```
+
+API usage is billed separately from ChatGPT subscriptions. Keep `AFM_AGENT_ALLOW_WRITES` unset for the default read-only mode. No API key is required for the web demo, local retrieval, `--check`, or CI tests.
 
 ## Running with Docker
 
@@ -358,6 +409,9 @@ Run the package suites separately:
 pytest packages/afm_core/tests -q
 pytest packages/ml/tests -q
 pytest packages/mcp_server/tests -q
+pytest packages/rag/tests -q
+pytest packages/agent/tests -q
+pytest frontend/tests -q
 ```
 
 Backend tests:
@@ -395,6 +449,7 @@ FastAPI exposes the main application functionality through a REST API.
 | `POST /api/scans` | Upload and parse a raw AFM text export |
 | `GET /api/scans` | List scans |
 | `GET /api/scans/{id}` | Read scan metadata |
+| `GET /api/scans/{id}/curves` | List coordinates that contain real curves |
 | `GET /api/scans/{id}/heightmap` | Get the height map |
 | `GET /api/scans/{id}/stiffnessmap` | Get the stiffness map |
 | `GET /api/scans/{id}/curves/{s}/{i}/{j}` | Get one raw force curve |
@@ -500,7 +555,7 @@ Full setup, security, recovery, and deployment details are documented in [`DEPLO
 
 `.github/workflows/ci.yml` runs automatically on pushes and pull requests.
 
-The repository currently includes 39 automated tests across the core analysis library, ML pipeline, REST backend, and MCP integration.
+The repository currently includes 52 automated tests across the core analysis library, ML pipeline, REST backend, Streamlit coordinate helpers, MCP integration, local RAG, and agent safety/configuration.
 
 The CI pipeline performs:
 
@@ -510,9 +565,10 @@ The CI pipeline performs:
 4. ML tests
 5. backend tests
 6. MCP tests
-7. frontend syntax checks
-8. production Compose validation
-9. Docker build checks
+7. local RAG, agent, and frontend-helper tests
+8. frontend syntax checks
+9. production Compose validation
+10. Docker build checks
 
 ### Continuous Deployment
 
@@ -589,16 +645,12 @@ Training currently runs through FastAPI background tasks.
 
 This is sufficient for the current data/model scale. Larger workloads would justify a dedicated worker or task queue.
 
-### MCP provides tools, not autonomous orchestration
-
-The MCP integration allows an AI client to call AFM Explorer tools, but the repository does not currently contain a dedicated autonomous agent that independently plans and executes long chains of operations.
-
 ## Future work
 
 The next extensions are intentionally focused on adding capability rather than expanding the stack for its own sake:
 
-1. **Autonomous AI agent over the MCP tool layer**  
-   Add a bounded agent orchestration layer that can plan multi-step AFM analyses, call several MCP tools, and return a grounded explanation. This should include strict turn limits, read-only-by-default behavior, and evaluation of tool-use reliability before being exposed publicly.
+1. **Optional rate-limited agent UI**
+   Add authenticated or tightly rate-limited public agent access only after setting a clear API budget and completing live model/tool trajectory evaluation.
 
 2. **Use real height measurements**  
    Add optional ingestion of `afm.heights.npy` and prefer independently measured topography when available, while preserving the current contact-position approximation as a fallback.

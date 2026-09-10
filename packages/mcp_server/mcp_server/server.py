@@ -122,6 +122,14 @@ async def get_curve(scan_id: str, series: int, i: int, j: int) -> dict:
 
 
 @mcp.tool
+async def list_curve_coordinates(scan_id: str, series: int | None = None) -> list[dict]:
+    """List coordinates that actually contain curves, optionally for one
+    series. Use this before selecting a pixel from a sparse scan; declared
+    grid dimensions do not guarantee that every (i, j) exists."""
+    return await get_client().list_curve_coordinates(scan_id, series)
+
+
+@mcp.tool
 async def get_contact_point_estimate(
     scan_id: str, series: int, i: int, j: int, method: str = "heuristic"
 ) -> dict:

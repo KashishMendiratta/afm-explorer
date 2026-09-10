@@ -21,6 +21,7 @@ async def test_default_tool_set_includes_reads_and_writes(mcp_client_bound):
         tools = {t.name for t in await client.list_tools()}
 
     for name in ["list_scans", "get_scan", "get_height_map", "get_stiffness_map", "get_curve",
+                 "list_curve_coordinates",
                  "get_contact_point_estimate", "list_labels", "get_active_model", "get_training_status"]:
         assert name in tools, f"missing read tool: {name}"
     for name in ["submit_label", "upload_scan", "train_model"]:
@@ -56,6 +57,11 @@ async def test_list_scans_and_get_height_map_summary(mcp_client_bound, uploaded_
         assert "summary" in body
         assert body["summary"]["m"] == body["m"]
         assert "min_at" in body["summary"]
+
+        result = await client.call_tool(
+            "list_curve_coordinates", {"scan_id": uploaded_scan_id, "series": 0}
+        )
+        assert [(item["i"], item["j"]) for item in result.data] == [(i, 0) for i in range(6)]
 
 
 async def test_submit_label_and_train_via_tools(mcp_client_bound, uploaded_scan_id, afm_client):

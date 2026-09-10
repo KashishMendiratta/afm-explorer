@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.api.deps import Settings, get_settings
-from app.schemas.curves import CurveOut, FitResultOut
+from app.schemas.curves import CurveCoordinateOut, CurveOut, FitResultOut
 from app.services import estimate_service, scan_service
 
 router = APIRouter(prefix="/api/scans/{scan_id}/curves", tags=["curves"])
@@ -21,6 +21,26 @@ def _curve_or_404(cache, series: int, i: int, j: int):
         return cache.curve(series, i, j)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=f"no curve at series={series}, i={i}, j={j}") from exc
+
+
+@router.get("", response_model=list[CurveCoordinateOut])
+def list_curve_coordinates(
+    scan_id: str,
+    series: int | None = Query(None, ge=0),
+    settings: Settings = Depends(get_settings),
+):
+    """List only coordinates that have a real curve.
+
+    Raw exports can declare a large grid while containing only a sparse
+    subset. Clients should use this inventory instead of assuming every
+    coordinate in ``0..m-1`` / ``0..n-1`` exists.
+    """
+    cache = _cache_or_404(settings, scan_id)
+    return [
+        CurveCoordinateOut(series=s, i=i, j=j, n_points=len(curve))
+        for (s, i, j), curve in sorted(cache.curves.items())
+        if series is None or s == series
+    ]
 
 
 @router.get("/{series}/{i}/{j}", response_model=CurveOut)

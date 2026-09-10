@@ -4,6 +4,8 @@ This document describes the production deployment currently used by AFM Explorer
 
 The application is deployed on an AWS EC2 instance using Docker Compose. nginx acts as the internal reverse proxy, Cloudflare Tunnel provides the public HTTPS endpoint, and GitHub Actions provides CI/CD.
 
+The deployed Streamlit image includes the bundled AFM demo file, so visitors can select **Load built-in demo** without uploading data. Curve navigation queries the backend's available-coordinate endpoint, which keeps sparse demo exports safe to browse.
+
 **Production URL:** `https://afm.kashishmendiratta.com`
 
 ## Architecture
@@ -503,6 +505,12 @@ Health endpoint:
 ```text
 https://afm.kashishmendiratta.com/api/health
 ```
+
+## Agent deployment and API-cost boundary
+
+The autonomous MCP + RAG agent is implemented as a local CLI package and is tested in CI without model calls. It is intentionally not part of the public Docker Compose stack, so anonymous visitors cannot consume an OpenAI API budget.
+
+Local RAG indexing and `afm-agent --check` require no API key. A real autonomous run requires the operator to provide `OPENAI_API_KEY`; usage is billed through that API account. If a public agent UI is added later, deploy it only with authentication or strict rate limits, a bounded turn count, read-only MCP tools, and an explicit spend limit.
 
 ## 16. Useful troubleshooting commands
 

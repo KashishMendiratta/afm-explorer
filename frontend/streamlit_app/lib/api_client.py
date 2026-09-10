@@ -12,6 +12,7 @@ import requests
 import streamlit as st
 
 BACKEND_URL = os.environ.get("BACKEND_URL", "http://localhost:8000")
+API_KEY = os.environ.get("AFM_API_KEY", "")
 TIMEOUT = 30
 
 
@@ -23,6 +24,7 @@ def upload_scan(filename: str, content: bytes) -> dict:
     resp = requests.post(
         _url("/api/scans"),
         files={"file": (filename, content, "text/plain")},
+        headers={"X-API-Key": API_KEY} if API_KEY else {},
         timeout=TIMEOUT,
     )
     resp.raise_for_status()
@@ -66,6 +68,13 @@ def get_stiffnessmap(scan_id: str, series: int, method: str) -> dict | None:
 @st.cache_data(ttl=60)
 def get_curve(scan_id: str, series: int, i: int, j: int) -> dict:
     resp = requests.get(_url(f"/api/scans/{scan_id}/curves/{series}/{i}/{j}"), timeout=TIMEOUT)
+    resp.raise_for_status()
+    return resp.json()
+
+
+@st.cache_data(ttl=60)
+def get_curve_coordinates(scan_id: str) -> list[dict]:
+    resp = requests.get(_url(f"/api/scans/{scan_id}/curves"), timeout=TIMEOUT)
     resp.raise_for_status()
     return resp.json()
 

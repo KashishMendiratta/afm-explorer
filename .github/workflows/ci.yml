@@ -33,6 +33,11 @@ jobs:
       - name: Install MCP server
         run: pip install -e "packages/mcp_server[dev]"
 
+      - name: Install local RAG and agent packages
+        run: |
+          pip install -e "packages/rag[dev]"
+          pip install -e "packages/agent[dev]"
+
       - name: Install backend dependencies
         working-directory: backend
         run: pip install -r requirements-dev.txt
@@ -58,6 +63,15 @@ jobs:
 
       - name: Test MCP server
         run: pytest packages/mcp_server/tests -q
+
+      - name: Test local RAG and autonomous agent
+        run: |
+          pytest packages/rag/tests -q
+          pytest packages/agent/tests -q
+          afm-agent --check
+
+      - name: Test frontend helpers
+        run: pytest frontend/tests -q
 
       - name: Check frontend Python syntax
         run: python -m compileall -q frontend

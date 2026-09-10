@@ -2,7 +2,7 @@ import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
 from lib import api_client
-from lib.scan_picker import pick_scan
+from lib.scan_picker import pick_curve_coordinate, pick_scan
 
 st.set_page_config(page_title="Label Contact Points", page_icon="🏷️", layout="wide")
 st.title("🏷️ Label Contact Points")
@@ -16,11 +16,10 @@ scan = pick_scan()
 if scan is None:
     st.stop()
 
-series = st.sidebar.selectbox(
-    "Series", list(range(scan["n_series"])), format_func=lambda s: "push" if s == 0 else "retract"
-)
-i = st.sidebar.slider("i", 0, scan["m"] - 1, 0)
-j = st.sidebar.slider("j", 0, scan["n"] - 1, 0)
+coordinate = pick_curve_coordinate(scan)
+if coordinate is None:
+    st.stop()
+series, i, j = coordinate
 
 curve = api_client.get_curve(scan["scan_id"], series, i, j)
 d, f = curve["distance"], curve["force"]

@@ -95,6 +95,12 @@ class AFMClient:
         _raise_for_status(resp)
         return resp.json()
 
+    async def list_curve_coordinates(self, scan_id: str, series: int | None = None) -> list[dict]:
+        params = {"series": series} if series is not None else {}
+        resp = await self._http.get(f"/api/scans/{scan_id}/curves", params=params)
+        _raise_for_status(resp)
+        return resp.json()
+
     async def get_estimate(self, scan_id: str, series: int, i: int, j: int, method: str = "heuristic") -> dict:
         resp = await self._http.get(
             f"/api/scans/{scan_id}/curves/{series}/{i}/{j}/estimate", params={"method": method}

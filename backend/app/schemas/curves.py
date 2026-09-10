@@ -1,6 +1,13 @@
 from pydantic import BaseModel
 
 
+class CurveCoordinateOut(BaseModel):
+    series: int
+    i: int
+    j: int
+    n_points: int
+
+
 class CurveOut(BaseModel):
     scan_id: str
     series: int

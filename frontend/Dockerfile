@@ -10,6 +10,7 @@ RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r /app/frontend/requirements.txt
 
 COPY frontend/streamlit_app /app/frontend/streamlit_app
+COPY data/samples/sample.txt /app/data/samples/sample.txt
 WORKDIR /app/frontend/streamlit_app
 
 RUN useradd --create-home --uid 1000 appuser && chown -R appuser:appuser /app
