@@ -4,6 +4,8 @@
 
 **Live demo:** https://afm.kashishmendiratta.com
 
+**Engineering evidence:** 39 automated tests · GitHub Actions CI/CD
+
 AFM Explorer is a full-stack platform for analyzing Atomic Force Microscopy (AFM) force-distance data. It started as a university programming assignment and was rebuilt into a tested, containerized, cloud-deployed application with a REST API, interactive visualizations, machine-learning-based contact-point estimation, CI/CD, and an MCP interface for AI-assisted analysis.
 
 ![AFM force curve with the detected contact region and estimated contact point](docs/assets/afm-curve-analysis.png)
@@ -497,6 +499,8 @@ Full setup, security, recovery, and deployment details are documented in [`DEPLO
 ### Continuous Integration
 
 `.github/workflows/ci.yml` runs automatically on pushes and pull requests.
+
+The repository currently includes 39 automated tests across the core analysis library, ML pipeline, REST backend, and MCP integration.
 
 The CI pipeline performs:
 
